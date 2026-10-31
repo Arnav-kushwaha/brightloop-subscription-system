@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brightloop - Subscription Management System</title>
+    <meta name="description" content="Enterprise Subscription Lifecycle & Recurring Billing Platform for Odoo x FLUX Lucknow Hackathon '26">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* Printable invoice styling */
+        @media print {
+            body * { visibility: hidden; }
+            #invoice-view-modal, #invoice-view-modal * { visibility: visible; }
+            #invoice-view-modal { position: absolute; left: 0; top: 0; width: 100%; background: #ffffff !important; color: #000000 !important; }
+            .modal-close-btn, .modal-footer { display: none !important; }
+        }
+        .demo-pill-btn {
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .demo-pill-admin { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+        .demo-pill-admin:hover { background: rgba(99, 102, 241, 0.35); }
+        .demo-pill-staff { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.4); }
+        .demo-pill-staff:hover { background: rgba(6, 182, 212, 0.35); }
+        .demo-pill-customer { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .demo-pill-customer:hover { background: rgba(16, 185, 129, 0.35); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="app-sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo">B</div>
+            <div class="brand-name">Brightloop</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-section-title">Core Operations</div>
+            <a href="#dashboard" class="nav-item active" data-view="dashboard" id="nav-dashboard">
+                <span class="nav-icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="#subscriptions" class="nav-item" data-view="subscriptions" id="nav-subscriptions">
+                <span class="nav-icon">🔄</span>
+                <span>Subscriptions</span>
+            </a>
+            <a href="#invoices" class="nav-item" data-view="invoices" id="nav-invoices">
+                <span class="nav-icon">📑</span>
+                <span>Invoices</span>
+            </a>
+            <a href="#payments" class="nav-item" data-view="payments" id="nav-payments">
+                <span class="nav-icon">💳</span>
+                <span>Payments</span>
+            </a>
+
+            <div class="nav-section-title">Catalog & Sales</div>
+            <a href="#quotations" class="nav-item" data-view="quotations" id="nav-quotations">
+                <span class="nav-icon">📝</span>
+                <span>Quotations</span>
+            </a>
+            <a href="#products" class="nav-item" data-view="products" id="nav-products">
+                <span class="nav-icon">📦</span>
+                <span>Products</span>
+            </a>
+            <a href="#plans" class="nav-item" data-view="plans" id="nav-plans">
+                <span class="nav-icon">⏱️</span>
+                <span>Billing Plans</span>
+            </a>
+            <a href="#discounts" class="nav-item" data-view="discounts" id="nav-discounts">
+                <span class="nav-icon">🏷️</span>
+                <span>Discounts & Promo</span>
+            </a>
+
+            <div class="nav-section-title">Administration</div>
+            <a href="#users" class="nav-item admin-only" data-view="users" id="nav-users">
+                <span class="nav-icon">👥</span>
+                <span>User Roles & Staff</span>
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="openModal('system-info-modal')">
+                <span class="nav-icon">⚙️</span>
+                <span>System Specs</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile-widget">
+                <div class="user-avatar" id="user-display-avatar">AD</div>
+                <div class="user-info">
+                    <div class="user-name" id="user-display-name">Admin User</div>
+                    <span class="user-role-badge" id="user-display-role">ADMIN</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btn-logout" title="Sign Out" style="padding: 4px 8px;">✕</button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Toggle navigation">☰</button>
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="global-search" placeholder="Search tables (subs, invoices, clients)..." />
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <!-- Quick Demo Login Switcher -->
+                <div style="display: flex; align-items: center; gap: 6px;" title="Switch session role for hackathon demo evaluation">
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">DEMO AS:</span>
+                    <button class="demo-pill-btn demo-pill-admin" onclick="loginAs('admin@brightloop.com', 'Admin@123')">Admin</button>
+                    <button class="demo-pill-btn demo-pill-staff" onclick="loginAs('staff@brightloop.com', 'Staff@123')">Staff</button>
+                    <button class="demo-pill-btn demo-pill-customer" onclick="loginAs('customer@brightloop.com', 'Customer@123')">Customer</button>
+                </div>
+
+                <!-- Backend Health Pill -->
+                <div class="backend-health-pill" id="backend-health-badge" title="Live status of Spring Boot REST API & MySQL">
+                    <span class="pulse-indicator active" id="backend-status-indicator"></span>
+                    <span id="backend-status-text">Backend Online</span>
+                </div>
+
+                <button class="btn btn-secondary btn-sm" id="btn-refresh-health" title="Ping /api/health">
+                    ⚡ Ping
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="content-body">
+
+            <!-- ======================================================== -->
+            <!-- 1. VIEW: DASHBOARD OVERVIEW                              -->
+            <!-- ======================================================== -->
+            <section class="view-section active" id="view-dashboard">
+                <div class="page-header">
+                    <div>
+                        <h1>Executive Finance & Subscription Overview</h1>
+                        <p>Real-time metrics, recurring revenue analytics, and billing lifecycles.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="openModal('add-quotation-modal'); prepareQuoteModal();">
+                            + New Quotation
+                        </button>
+                        <button class="btn btn-secondary" onclick="openModal('add-subscription-modal'); prepareSubscriptionModal();">
+                            + New Subscription
+                        </button>
+                        <button class="btn btn-primary" onclick="triggerRecurringInvoices()">
+                            ⚡ Run Recurring Billing
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards Grid -->
+                <div class="kpi-grid">
+                    <div class="kpi-card" id="kpi-active-subs">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Active Subscriptions</span>
+                            <div class="kpi-icon-badge">🔄</div>
+                        </div>
+                        <div class="kpi-value" id="val-active-subs">0</div>
+                        <div class="kpi-footer">
+                            <span class="kpi-trend">Live Contracts</span>
+                            <span>active lifecycle</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card" id="kpi-mrr">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Monthly Recurring Revenue</span>
+                            <div class="kpi-icon-badge">📈</div>
+                        </div>
+                        <div class="kpi-value" id="val-mrr">$0.00</div>
+                        <div class="kpi-footer">
+                            <span class="kpi-trend">Contracted MRR</span>
+                            <span>normalized billing run rate</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card" id="kpi-invoices-due">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Total Outstanding</span>
+                            <div class="kpi-icon-badge">📑</div>
+                        </div>
+                        <div class="kpi-value" id="val-outstanding">$0.00</div>
+                        <div class="kpi-footer">
+                            <span class="badge badge-warning" id="badge-overdue-count" style="font-size: 0.72rem; padding: 2px 8px;">0 Overdue</span>
+                            <span>receivable balance</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-card" id="kpi-payments">
+                        <div class="kpi-header">
+                            <span class="kpi-title">Payments Collected</span>
+                            <div class="kpi-icon-badge">💰</div>
+                        </div>
+                        <div class="kpi-value" id="val-payments">$0.00</div>
+                        <div class="kpi-footer">
+                            <span class="kpi-trend">✓ Reconciled</span>
+                            <span>settled transactions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Subscriptions & Recent Invoices Tables -->
+                <div style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-title-wrap">
+                                <h2>Recent Subscriptions</h2>
+                                <p>Latest customer contracts and auto-renewing billing terms.</p>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="showView('subscriptions')">View All →</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sub Number</th>
+                                        <th>Customer</th>
+                                        <th>Plan</th>
+                                        <th>Recurring Amt</th>
+                                        <th>Interval</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-subs-table">
+                                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading subscriptions...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-title-wrap">
+                                <h2>Recent Invoices & Due Receivables</h2>
+                                <p>Automated billing statements and payment settlement status.</p>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="showView('invoices')">View All →</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Customer</th>
+                                        <th>Due Date</th>
+                                        <th>Total Amount</th>
+                                        <th>Outstanding</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-invoices-table">
+                                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading invoices...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 2. VIEW: PRODUCTS CATALOG                                -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-products">
+                <div class="page-header">
+                    <div>
+                        <h1>Product Catalog & Offerings</h1>
+                        <p>Manage subscription products, variants, selling prices, and unit costs.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('add-product-modal')">
+                            + Add Product
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>Type</th>
+                                    <th>Selling Price</th>
+                                    <th>Cost Price</th>
+                                    <th>Variants & Surcharges</th>
+                                    <th>Notes</th>
+                                    <th class="admin-only">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-body">
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading products...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 3. VIEW: BILLING PLANS                                   -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-plans">
+                <div class="page-header">
+                    <div>
+                        <h1>Subscription Plans & Billing Schedules</h1>
+                        <p>Configure recurring intervals (Daily, Weekly, Monthly, Yearly), pricing, and minimum quantities.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('add-plan-modal')">
+                            + Create Plan
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Plan Name</th>
+                                    <th>Billing Interval</th>
+                                    <th>Base Rate</th>
+                                    <th>Min Quantity</th>
+                                    <th>Valid Period</th>
+                                    <th>Description</th>
+                                    <th class="admin-only">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plans-table-body">
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading plans...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 4. VIEW: QUOTATIONS                                      -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-quotations">
+                <div class="page-header">
+                    <div>
+                        <h1>Quotations & Estimates</h1>
+                        <p>Issue proposals to clients with discounts and taxes, then convert with 1-click into active recurring subscriptions.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('add-quotation-modal'); prepareQuoteModal();">
+                            + Create Quotation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Quote #</th>
+                                    <th>Customer</th>
+                                    <th>Valid Until</th>
+                                    <th>Subtotal</th>
+                                    <th>Tax (10%)</th>
+                                    <th>Discount</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="quotations-table-body">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading quotations...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 5. VIEW: ACTIVE SUBSCRIPTIONS                            -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-subscriptions">
+                <div class="page-header">
+                    <div>
+                        <h1>Subscription Lifecycles</h1>
+                        <p>Track live contracts with states: Draft → Quotation → Confirmed → Active → Closed. Support Pause, Resume, and Renew.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('add-subscription-modal'); prepareSubscriptionModal();">
+                            + New Subscription
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Sub Number</th>
+                                    <th>Customer</th>
+                                    <th>Plan</th>
+                                    <th>Qty & Unit Rate</th>
+                                    <th>Recurring Amt</th>
+                                    <th>Interval</th>
+                                    <th>Next Billing</th>
+                                    <th>Status</th>
+                                    <th>Lifecycle Controls</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subscriptions-table-body">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading subscriptions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 6. VIEW: INVOICES                                        -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-invoices">
+                <div class="page-header">
+                    <div>
+                        <h1>Invoices & Automated Recurring Billing</h1>
+                        <p>Generate recurring invoices automatically with duplicate protection, manage status transitions, and issue payments.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="triggerRecurringInvoices()">
+                            ⚡ Scan & Generate Due Invoices
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Issue Date</th>
+                                    <th>Due Date</th>
+                                    <th>Total Amount</th>
+                                    <th>Paid Amount</th>
+                                    <th>Outstanding</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoices-table-body">
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading invoices...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 7. VIEW: DISCOUNTS & COUPONS                             -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-discounts">
+                <div class="page-header">
+                    <div>
+                        <h1>Discounts & Promotional Rules</h1>
+                        <p>Create percentage and fixed-amount coupons with minimum spend thresholds, quantity conditions, and usage caps.</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('add-discount-modal')">
+                            + Create Coupon Code
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Coupon Code</th>
+                                    <th>Discount Type</th>
+                                    <th>Value</th>
+                                    <th>Min Spend</th>
+                                    <th>Times Used / Cap</th>
+                                    <th>Validity Period</th>
+                                    <th>Status</th>
+                                    <th class="admin-only">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discounts-table-body">
+                                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading discounts...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 8. VIEW: PAYMENTS                                        -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-payments">
+                <div class="page-header">
+                    <div>
+                        <h1>Payment Settlements & Audit History</h1>
+                        <p>Complete ledger of full and partial settlements against customer invoices with automatic status reconciliation.</p>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Payment Ref</th>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Settled Amount</th>
+                                    <th>Method</th>
+                                    <th>Recorded Time</th>
+                                    <th>Recorded By</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payments-table-body">
+                                <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading payments...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- 9. VIEW: USERS & ROLES                                   -->
+            <!-- ======================================================== -->
+            <section class="view-section" id="view-users">
+                <div class="page-header">
+                    <div>
+                        <h1>User Management & Role-Based Access</h1>
+                        <p>Manage system users, customer logins, and provision Staff accounts (Admin-only capability).</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openModal('create-staff-modal')">
+                            + Provision Staff Account
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Email Address</th>
+                                    <th>Assigned Role</th>
+                                    <th>Status</th>
+                                    <th>Joined Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 32px;">Loading users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: ADD PRODUCT                                               -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="add-product-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Add New Product</h3>
+            <button class="modal-close-btn" onclick="closeModal('add-product-modal')">×</button>
+        </div>
+        <form id="form-add-product">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="prod-name">Product Name *</label>
+                    <input type="text" class="form-control" id="prod-name" placeholder="e.g. Cloud Security Suite" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="prod-type">Product Type *</label>
+                        <select class="form-control" id="prod-type" required>
+                            <option value="DIGITAL">DIGITAL</option>
+                            <option value="SERVICE">SERVICE</option>
+                            <option value="GOODS">GOODS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-selling-price">Selling Price ($) *</label>
+                        <input type="number" step="0.01" class="form-control" id="prod-selling-price" placeholder="49.99" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="prod-cost-price">Cost Price ($) *</label>
+                        <input type="number" step="0.01" class="form-control" id="prod-cost-price" placeholder="15.00" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="prod-variant-name">Optional Variant Name</label>
+                        <input type="text" class="form-control" id="prod-variant-name" placeholder="e.g. Enterprise Edition" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="prod-variant-price">Variant Surcharge ($)</label>
+                    <input type="number" step="0.01" class="form-control" id="prod-variant-price" value="0.00" />
+                </div>
+                <div class="form-group">
+                    <label for="prod-notes">Internal Notes</label>
+                    <textarea class="form-control" id="prod-notes" rows="2" placeholder="Product catalog notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-product-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: ADD PLAN                                                  -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="add-plan-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Create Subscription Plan</h3>
+            <button class="modal-close-btn" onclick="closeModal('add-plan-modal')">×</button>
+        </div>
+        <form id="form-add-plan">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="plan-name">Plan Name *</label>
+                    <input type="text" class="form-control" id="plan-name" placeholder="e.g. Starter SaaS Monthly" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="plan-interval">Billing Interval *</label>
+                        <select class="form-control" id="plan-interval" required>
+                            <option value="DAILY">DAILY</option>
+                            <option value="WEEKLY">WEEKLY</option>
+                            <option value="MONTHLY" selected>MONTHLY</option>
+                            <option value="YEARLY">YEARLY</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="plan-interval-count">Interval Multiplier</label>
+                        <input type="number" class="form-control" id="plan-interval-count" value="1" min="1" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="plan-price">Base Recurring Rate ($) *</label>
+                        <input type="number" step="0.01" class="form-control" id="plan-price" placeholder="29.00" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="plan-min-qty">Min Quantity Required</label>
+                        <input type="number" class="form-control" id="plan-min-qty" value="1" min="1" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="plan-start-date">Plan Activation Date</label>
+                    <input type="date" class="form-control" id="plan-start-date" />
+                </div>
+                <div class="form-group">
+                    <label for="plan-desc">Plan Description</label>
+                    <textarea class="form-control" id="plan-desc" rows="2" placeholder="Billing details and tier benefits..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-plan-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Plan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: ADD QUOTATION                                             -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="add-quotation-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Generate Customer Quotation</h3>
+            <button class="modal-close-btn" onclick="closeModal('add-quotation-modal')">×</button>
+        </div>
+        <form id="form-add-quotation">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="quote-customer-id">Select Customer *</label>
+                    <select class="form-control" id="quote-customer-id" required>
+                        <option value="">Loading customers...</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quote-plan-id">Select Plan *</label>
+                        <select class="form-control" id="quote-plan-id" required>
+                            <option value="">Loading plans...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="quote-product-id">Select Product (Optional)</label>
+                        <select class="form-control" id="quote-product-id">
+                            <option value="">-- No Add-on Product --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quote-qty">Quantity *</label>
+                        <input type="number" class="form-control" id="quote-qty" value="1" min="1" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="quote-discount">Discount Amount ($)</label>
+                        <input type="number" step="0.01" class="form-control" id="quote-discount" value="0.00" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="quote-valid-until">Quotation Valid Until *</label>
+                    <input type="date" class="form-control" id="quote-valid-until" required />
+                </div>
+                <div class="form-group">
+                    <label for="quote-notes">Terms & Notes</label>
+                    <textarea class="form-control" id="quote-notes" rows="2" placeholder="Custom terms, SLA expectations..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-quotation-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Quotation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: ADD SUBSCRIPTION                                          -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="add-subscription-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Start Direct Subscription</h3>
+            <button class="modal-close-btn" onclick="closeModal('add-subscription-modal')">×</button>
+        </div>
+        <form id="form-add-subscription">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="sub-customer-id">Subscriber Account *</label>
+                    <select class="form-control" id="sub-customer-id" required>
+                        <option value="">Loading customers...</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sub-plan-id">Subscription Plan *</label>
+                        <select class="form-control" id="sub-plan-id" required>
+                            <option value="">Loading plans...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sub-product-id">Associated Product (Optional)</label>
+                        <select class="form-control" id="sub-product-id">
+                            <option value="">-- No Add-on Product --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sub-qty">Quantity (Seats / Units) *</label>
+                        <input type="number" class="form-control" id="sub-qty" value="1" min="1" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="sub-start-date">Contract Start Date</label>
+                        <input type="date" class="form-control" id="sub-start-date" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-subscription-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Activate Subscription</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: RECORD PAYMENT                                            -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="record-payment-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Record Invoice Settlement</h3>
+            <button class="modal-close-btn" onclick="closeModal('record-payment-modal')">×</button>
+        </div>
+        <form id="form-record-payment">
+            <input type="hidden" id="pay-invoice-id" />
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Target Invoice</label>
+                    <div id="pay-invoice-display" style="padding: 10px 14px; background: var(--bg-surface); border-radius: var(--radius-md); font-weight: 600; color: var(--primary);">
+                        Invoice
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pay-amount">Payment Amount ($) *</label>
+                        <input type="number" step="0.01" class="form-control" id="pay-amount" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="pay-method">Settlement Channel *</label>
+                        <select class="form-control" id="pay-method" required>
+                            <option value="CREDIT_CARD">Credit Card</option>
+                            <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS)</option>
+                            <option value="UPI">UPI</option>
+                            <option value="CASH">Cash / Offline</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="pay-notes">Payment Reference & Notes</label>
+                    <textarea class="form-control" id="pay-notes" rows="2" placeholder="Transaction ID, bank reference, check number..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('record-payment-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Process Settlement</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: ADD DISCOUNT CODE                                         -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="add-discount-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Create Promotional Coupon</h3>
+            <button class="modal-close-btn" onclick="closeModal('add-discount-modal')">×</button>
+        </div>
+        <form id="form-add-discount">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="disc-code">Coupon Code *</label>
+                        <input type="text" class="form-control" id="disc-code" placeholder="e.g. FLUX2026" style="text-transform: uppercase;" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="disc-type">Discount Type *</label>
+                        <select class="form-control" id="disc-type" required>
+                            <option value="PERCENTAGE">PERCENTAGE (%)</option>
+                            <option value="FIXED">FIXED AMOUNT ($)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="disc-amount">Discount Value *</label>
+                        <input type="number" step="0.01" class="form-control" id="disc-amount" placeholder="20 for 20%" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="disc-min-spend">Minimum Spend ($)</label>
+                        <input type="number" step="0.01" class="form-control" id="disc-min-spend" value="0.00" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="disc-min-qty">Min Item Quantity</label>
+                        <input type="number" class="form-control" id="disc-min-qty" value="1" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label for="disc-limit">Max Redemptions Cap</label>
+                        <input type="number" class="form-control" id="disc-limit" value="100" min="1" required />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="disc-start-date">Valid From *</label>
+                        <input type="date" class="form-control" id="disc-start-date" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="disc-end-date">Valid Until *</label>
+                        <input type="date" class="form-control" id="disc-end-date" required />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('add-discount-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Issue Coupon</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: CREATE STAFF                                              -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="create-staff-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Provision Staff Account</h3>
+            <button class="modal-close-btn" onclick="closeModal('create-staff-modal')">×</button>
+        </div>
+        <form id="form-create-staff">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="staff-name">Staff Full Name *</label>
+                    <input type="text" class="form-control" id="staff-name" placeholder="e.g. Priya Sharma" required />
+                </div>
+                <div class="form-group">
+                    <label for="staff-email">Staff Work Email *</label>
+                    <input type="email" class="form-control" id="staff-email" placeholder="priya@brightloop.com" required />
+                </div>
+                <div class="form-group">
+                    <label for="staff-password">Initial Password (min 6 chars) *</label>
+                    <input type="password" class="form-control" id="staff-password" placeholder="••••••••" minlength="6" required />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('create-staff-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Staff Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: VIEW / PRINT INVOICE                                      -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="invoice-view-modal">
+    <div class="modal-card" style="max-width: 680px;">
+        <div class="modal-header">
+            <div>
+                <h3>Tax Invoice Statement</h3>
+                <span id="modal-inv-number" style="font-family: var(--font-mono); color: var(--primary); font-size: 0.9rem; font-weight: 700;">INV-0000</span>
+            </div>
+            <button class="modal-close-btn" onclick="closeModal('invoice-view-modal')">×</button>
+        </div>
+        <div class="modal-body" style="font-size: 0.88rem;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 16px;">
+                <div>
+                    <strong style="color: var(--text-primary); font-size: 1rem;">Brightloop Technologies Inc.</strong>
+                    <p style="color: var(--text-secondary); margin-top: 4px;">Lucknow Tech Hub, UP, India<br>GSTIN: 09AAACB1234D1Z5</p>
+                </div>
+                <div style="text-align: right;">
+                    <div><strong>Customer:</strong> <span id="modal-inv-customer">-</span></div>
+                    <div><strong>Issue Date:</strong> <span id="modal-inv-issue">-</span></div>
+                    <div><strong>Due Date:</strong> <span id="modal-inv-due">-</span></div>
+                    <div><strong>Status:</strong> <span id="modal-inv-status" class="badge badge-info" style="margin-left: 4px;">-</span></div>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <table class="data-table" style="margin-bottom: 16px;">
+                <thead>
+                    <tr>
+                        <th>Item Description</th>
+                        <th>Qty</th>
+                        <th>Unit Rate</th>
+                        <th>Line Total</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-inv-items">
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No line items.</td></tr>
+                </tbody>
+            </table>
+
+            <!-- Summary Breakdown -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 260px; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Subtotal:</span>
+                        <strong id="modal-inv-subtotal">$0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Tax (10% GST):</span>
+                        <span id="modal-inv-tax">$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--danger);">
+                        <span>Discount:</span>
+                        <span id="modal-inv-discount">-$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; padding-top: 8px; border-top: 1px solid var(--border-color); color: var(--text-primary);">
+                        <strong>Invoice Total:</strong>
+                        <strong id="modal-inv-total" style="color: var(--primary);">$0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; color: var(--success); padding-top: 4px;">
+                        <span>Amount Paid:</span>
+                        <span id="modal-inv-paid">$0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--warning); padding-top: 4px;">
+                        <span>Balance Due:</span>
+                        <span id="modal-inv-outstanding">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="window.print()">🖨️ Print / Save PDF</button>
+            <button type="button" class="btn btn-primary" onclick="closeModal('invoice-view-modal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: AUTHENTICATION / LOGIN                                    -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="login-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Authenticate to Brightloop</h3>
+            <button class="modal-close-btn" onclick="closeModal('login-modal')">×</button>
+        </div>
+        <form id="form-login">
+            <div class="modal-body">
+                <div style="margin-bottom: 16px; padding: 12px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: var(--radius-md);">
+                    <div style="font-weight: 700; font-size: 0.82rem; color: var(--primary); margin-bottom: 8px;">1-Click Hackathon Evaluator Logins:</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="demo-pill-btn demo-pill-admin" onclick="loginAs('admin@brightloop.com', 'Admin@123')">Admin (Full Access)</button>
+                        <button type="button" class="demo-pill-btn demo-pill-staff" onclick="loginAs('staff@brightloop.com', 'Staff@123')">Staff (Ops & Billing)</button>
+                        <button type="button" class="demo-pill-btn demo-pill-customer" onclick="loginAs('customer@brightloop.com', 'Customer@123')">Customer (Client View)</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" class="form-control" id="login-email" placeholder="name@domain.com" required />
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" class="form-control" id="login-password" placeholder="••••••••" required />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('login-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- MODAL: SYSTEM ARCHITECTURE & SPECS                               -->
+<!-- ================================================================ -->
+<div class="modal-backdrop" id="system-info-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>Brightloop System Architecture Specs</h3>
+            <button class="modal-close-btn" onclick="closeModal('system-info-modal')">×</button>
+        </div>
+        <div class="modal-body" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">
+            <p><strong style="color: var(--text-primary);">Hackathon:</strong> Odoo x FLUX Lucknow Hackathon '26</p>
+            <p><strong style="color: var(--text-primary);">Backend:</strong> Java 24 / Spring Boot 3.4.3 / Maven Wrapper</p>
+            <p><strong style="color: var(--text-primary);">Frontend:</strong> Vanilla HTML, Modern CSS (Design System Tokens), Vanilla JS</p>
+            <p><strong style="color: var(--text-primary);">Database:</strong> MySQL 8.4.9 (Local HikariCP Pool on brightloop_db)</p>
+            <p><strong style="color: var(--text-primary);">Security:</strong> Spring Security / BCrypt / Stateless JWT Authorization</p>
+            <p><strong style="color: var(--text-primary);">Automated Cycles:</strong> Recurring Billing Engine with Duplicate Avoidance</p>
+            <p style="margin-top: 12px; padding: 10px; background: var(--bg-surface); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.8rem;">
+                Live Endpoint: GET http://localhost:8080/api/health
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('system-info-modal')">Close</button>
+            <button class="btn btn-primary" onclick="checkBackendHealth().then(res => { showToast(res.isOnline ? 'Connected to Spring Boot REST API' : 'Backend is currently offline', res.isOnline ? 'success' : 'error'); closeModal('system-info-modal'); });">
+                Test Connection
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+
+</body>
+</html>
